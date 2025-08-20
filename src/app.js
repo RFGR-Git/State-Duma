@@ -1,0 +1,1489 @@
+// App.js
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import {
+  Home as HomeIcon,
+  Users,
+  Briefcase,
+  GitPullRequest,
+  ChevronsUp,
+  User,
+  Calendar,
+  Layers,
+  Info,
+  Search,
+  Gavel,
+  CheckCircle,
+  XCircle,
+  FileBadge,
+  X as XIcon,
+  MinusCircle,
+  UserX,
+  Plus,
+  ChevronDown,
+  Lock,
+  Edit,
+  Trash2,
+  ListPlus,
+  ArrowRight,
+  ListFilter
+} from 'lucide-react';
+
+// Main App component that manages the state and renders the correct page
+function App() {
+  const [currentPage, setCurrentPage] = useState('home');
+  const [selectedBill, setSelectedBill] = useState(null); // State to hold the bill data for the modal
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [bills, setBills] = useState([]);
+  const [representatives, setRepresentatives] = useState([]);
+  const [leadership, setLeadership] = useState({});
+
+  useEffect(() => {
+    async function initFirebase() {
+      // Use the global __firebase_config variable to initialize Firebase
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+      if (Object.keys(firebaseConfig).length) {
+        const app = initializeApp(firebaseConfig);
+        const firestoreDb = getFirestore(app);
+        const firebaseAuth = getAuth(app);
+
+        setDb(firestoreDb);
+        setAuth(firebaseAuth);
+
+        const unsubscribeAuth = onAuthStateChanged(firebaseAuth, async (user) => {
+          if (user) {
+            setUserId(user.uid);
+            setIsAuthReady(true);
+          } else {
+            try {
+              if (initialAuthToken) {
+                await signInWithCustomToken(firebaseAuth, initialAuthToken);
+              } else {
+                await signInAnonymously(firebaseAuth);
+              }
+            } catch (error) {
+              console.error("Firebase sign-in failed:", error);
+            }
+          }
+        });
+        return () => unsubscribeAuth();
+      }
+    }
+    initFirebase();
+  }, []);
+
+  // Firestore data listeners
+  useEffect(() => {
+    if (db && userId) {
+      const unsubscribeBills = onSnapshot(collection(db, `artifacts/${__app_id}/public/data/bills`), (snapshot) => {
+        const fetchedBills = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setBills(fetchedBills);
+      });
+      const unsubscribeReps = onSnapshot(collection(db, `artifacts/${__app_id}/public/data/representatives`), (snapshot) => {
+        const fetchedReps = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setRepresentatives(fetchedReps);
+      });
+      const unsubscribeLeaders = onSnapshot(collection(db, `artifacts/${__app_id}/public/data/leadership`), (snapshot) => {
+        const fetchedLeaders = {};
+        snapshot.docs.forEach(doc => {
+          fetchedLeaders[doc.id] = doc.data();
+        });
+        setLeadership(fetchedLeaders);
+      });
+      return () => {
+        unsubscribeBills();
+        unsubscribeReps();
+        unsubscribeLeaders();
+      };
+    }
+  }, [db, userId]);
+
+
+  // Function to get party color based on party name
+  const getPartyColorClass = (party) => {
+    switch (party) {
+      case 'United Russia':
+        return 'text-[#FFD700]'; // Gold for United Russia
+      case 'Russia of the Future':
+        return 'text-[#2979FF]'; // Bright Azure for Russia of the Future
+      case 'Independent':
+        return 'text-white/70'; // Muted white for Independent
+      default:
+        return 'text-gray-400';
+    }
+  };
+
+  // Function to get status color based on status
+  const getStatusColorClass = (status) => {
+    switch (status) {
+      case 'submitted': return 'bg-gray-500';
+      case 'scheduled': return 'bg-blue-500';
+      case 'in debate': return 'bg-indigo-500';
+      case 'amended': return 'bg-purple-500';
+      case 'passed': return 'bg-green-500';
+      case 'failed': return 'bg-red-500';
+      case 'postponed': return 'bg-yellow-500';
+      case 'sent to president': return 'bg-teal-500';
+      case 'withdrawn': return 'bg-gray-400';
+      case 'first hearing': return 'bg-cyan-500';
+      case 'second hearing': return 'bg-orange-500';
+      case 'third hearing': return 'bg-pink-500';
+      default: return 'bg-gray-600';
+    }
+  };
+  
+  // Status color mapping for admin list
+  const getAdminStatusColor = (status) => {
+    switch (status) {
+      case 'submitted': return 'bg-gray-500/20 text-gray-500';
+      case 'scheduled': return 'bg-blue-500/20 text-blue-500';
+      case 'in debate': return 'bg-indigo-500/20 text-indigo-500';
+      case 'amended': return 'bg-purple-500/20 text-purple-500';
+      case 'passed': return 'bg-green-500/20 text-green-500';
+      case 'failed': return 'bg-red-500/20 text-red-500';
+      case 'postponed': return 'bg-yellow-500/20 text-yellow-500';
+      case 'sent to president': return 'bg-teal-500/20 text-teal-500';
+      case 'withdrawn': return 'bg-gray-400/20 text-gray-400';
+      case 'first hearing': return 'bg-cyan-500/20 text-cyan-500';
+      case 'second hearing': return 'bg-orange-500/20 text-orange-500';
+      case 'third hearing': return 'bg-pink-500/20 text-pink-500';
+      default: return 'bg-gray-600/20 text-gray-600';
+    }
+  };
+
+
+  // Components for each page
+  const Home = () => {
+    const [isDumaExplainedOpen, setIsDumaExplainedOpen] = useState(false);
+    const steps = [
+      {
+        title: "Bill Introduction",
+        description: "A legislator or government body formally presents a proposed law. The bill is assigned a number and enters the legislative system."
+      },
+      {
+        title: "First Reading",
+        description: "The bill’s title and general purpose are presented. Members debate its overall concept."
+      },
+      {
+        title: "Second Reading",
+        description: "Detailed examination occurs. Members discuss the bill’s specific provisions, propose amendments, and vote on them."
+      },
+      {
+        title: "Third Reading",
+        description: "Final review and debate. No further amendments are allowed, and legislators vote on whether to pass the bill in its final form."
+      },
+      {
+        title: "Presidential Signing",
+        description: "If the legislature passes the bill, it goes to the president for approval. The president can sign it into law or veto it."
+      },
+      {
+        title: "Published as Law",
+        description: "Once signed, the law is officially published and becomes enforceable, entering the legal system for implementation."
+      }
+    ];
+    const [currentStep, setCurrentStep] = useState(0);
+
+    return (
+      <div className="flex flex-col items-center">
+        {/* Hero Section */}
+        <div className="w-full relative py-24 sm:py-32 overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-16">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-70"></div>
+          <div className="absolute inset-0 bg-[url('https://placehold.co/1920x1080/0A1F44/2979FF/png?text=')] bg-cover bg-center mix-blend-overlay opacity-30"></div>
+          <div className="relative z-10 container mx-auto text-center px-4">
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl text-white font-extrabold tracking-wide uppercase leading-tight animate-fade-in-up">
+              State Duma <br /> of the Russian Federation
+            </h1>
+            <p className="mt-4 sm:mt-6 text-xl sm:text-2xl text-white/80 leading-relaxed max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.5s' }}>
+              The legislative authority of the Russian Federation.
+            </p>
+          </div>
+        </div>
+
+        {/* Duma Explained Section */}
+        <div className="w-full max-w-7xl px-4 sm:px-6 mb-16">
+          <div className="bg-[#111827] p-8 md:p-12 rounded-[2rem] shadow-xl border border-white/10 transition-transform duration-500 hover:scale-[1.005]">
+            <div
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => setIsDumaExplainedOpen(!isDumaExplainedOpen)}
+            >
+              <h2 className="text-3xl font-bold tracking-wide uppercase text-white flex items-center">
+                <Info className="inline-block mr-3 text-[#2979FF]" size={30} /> The Duma Explained
+              </h2>
+              <ChevronDown
+                className={`text-[#FFD700] transition-transform duration-300 ${isDumaExplainedOpen ? 'rotate-180' : ''}`}
+                size={32}
+              />
+            </div>
+            {isDumaExplainedOpen && (
+              <div className="grid md:grid-cols-3 gap-8 mt-8 text-left animate-fade-in-down">
+                {/* Deputies' Job */}
+                <div className="bg-[#0A1F44] p-6 rounded-2xl shadow-inner border border-[#2979FF]/20 transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                  <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700] mb-3 flex items-center">
+                    <User className="mr-2 text-[#2979FF]" /> Job of Deputies
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">Deputies serve as the legislative representatives of the Russian people. Their primary roles include initiating and voting on federal laws, approving the appointment of the Prime Minister, overseeing the government's work, and representing their constituents' interests at the national level. They work within parliamentary committees and factions to debate and shape policy.</p>
+                </div>
+                {/* Election Process */}
+                <div className="bg-[#0A1F44] p-6 rounded-2xl shadow-inner border border-[#2979FF]/20 transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                  <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700] mb-3 flex items-center">
+                    <Users className="mr-2 text-[#2979FF]" /> How They Are Elected
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">There are 15 deputies in the State Duma. They are elected based on campaign points and direct votes, combined into a percentage against their opponent. The candidate with the highest percentage wins the seat.</p>
+                </div>
+                {/* Duma Rules */}
+                <div className="bg-[#0A1F44] p-6 rounded-2xl shadow-inner border border-[#2979FF]/20 transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                  <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700] mb-3 flex items-center">
+                    <Layers className="mr-2 text-[#2979FF]" /> State Duma Rules
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">State Duma rules play a vital part in the organization and functioning of the State Duma.</p>
+                  <a href="https://docs.google.com/document/d/1KlmwV8XzArt008LcR2Vn2emy6NDYIAamYjab4QO-MSs/edit?usp=sharing" target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center text-[#2979FF] hover:text-[#FFD700] transition-colors duration-200">
+                    View Document <ArrowRight size={16} className="ml-2" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Legislative Process Section - Timeline with Slider */}
+        <div id="timeline" className="w-full max-w-7xl px-4 sm:px-6 mb-16">
+          <div className="bg-[#111827] p-8 md:p-12 rounded-[2rem] shadow-xl border border-white/10">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-white text-center mb-12 flex items-center justify-center">
+              <Gavel className="inline-block mr-3 text-[#2979FF]" size={30} /> The Journey of Legislation
+            </h2>
+            
+            {/* Timeline steps */}
+            <div className="relative flex justify-between items-center mb-10 h-16">
+              <div className="absolute w-full h-1 bg-[#0A1F44] top-1/2 left-0 -translate-y-1/2">
+                <div className="h-full bg-gradient-to-r from-[#2979FF] to-[#FFD700] transition-all duration-300" style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}></div>
+              </div>
+              {steps.map((step, index) => (
+                <div key={index} className="flex flex-col items-center flex-1 text-center relative z-10 my-4 md:my-0" style={{ transform: 'translateY(-18px)' }}>
+                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${currentStep >= index ? 'border-[#FFD700] bg-[#2979FF]' : 'border-[#0A1F44] bg-[#0A1F44]'}`}>
+                    {currentStep >= index && <CheckCircle className="text-white" size={20} />}
+                  </div>
+                  <p className={`mt-4 text-sm md:text-base font-medium leading-tight max-w-[100px] transition-colors duration-300 ${currentStep >= index ? 'text-white' : 'text-[#64748B]'}`}>
+                    {step.title}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Slider control */}
+            <div className="w-full flex justify-center mt-8 mb-6">
+                <input
+                    type="range"
+                    min="0"
+                    max={steps.length - 1}
+                    value={currentStep}
+                    onChange={(e) => setCurrentStep(parseInt(e.target.value))}
+                    className="w-4/5 h-2 rounded-lg appearance-none bg-[#0A1F44] outline-none slider-thumb"
+                />
+            </div>
+
+            {/* Description Box */}
+            <div className="mt-12 bg-[#0A1F44] p-6 rounded-2xl shadow-lg border border-[#2979FF]/20 text-center animate-fade-in-down">
+              <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700] mb-3">{steps[currentStep].title}</h3>
+              <p className="text-lg text-[#CBD5E1] leading-relaxed">{steps[currentStep].description}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const Representatives = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedFilter, setSelectedFilter] = useState({ type: 'all', value: 'All' });
+    const filters = {
+      Parties: ['All', 'United Russia', 'Russia of the Future', 'Independent'],
+      Regions: ['All', 'Volga Valley', 'Northern Frontier', 'Caucasia', 'Central Steppes', 'Siberian Frontier', 'Outer Mongolia']
+    };
+
+    const filteredRepresentatives = representatives
+      .filter(rep => rep.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      .filter(rep => {
+        if (selectedFilter.value === 'All') return true;
+        const filterKey = selectedFilter.type === 'parties' ? 'party' : 'region';
+        return rep[filterKey] === selectedFilter.value;
+      });
+
+    return (
+      <div className="p-4 sm:p-8">
+        {/* Banner Image */}
+        <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-70"></div>
+          <div className="absolute inset-0 bg-[url('https://placehold.co/1920x1080/0A1F44/2979FF/png?text=')] bg-cover bg-center mix-blend-overlay opacity-30"></div>
+          <div className="relative z-10 flex items-center justify-center h-full px-4">
+            <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
+              Directory of Representatives
+            </h1>
+          </div>
+        </div>
+
+        <div className="w-full max-w-7xl mx-auto">
+          {/* Search and Filter */}
+          <div className="bg-[#111827] p-6 rounded-2xl shadow-lg mb-8 border border-white/10">
+            <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 sm:space-x-4">
+              <div className="relative w-full sm:w-2/3">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={20} />
+                <input
+                  type="text"
+                  placeholder="SEARCH REPRESENTATIVES..."
+                  className="w-full pl-12 pr-4 py-3 bg-[#0A1F44] text-white rounded-full focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B] font-mono"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="relative w-full sm:w-1/3">
+                <select
+                  onChange={(e) => {
+                    const [type, value] = e.target.value.split(':');
+                    setSelectedFilter({ type: type, value: value });
+                  }}
+                  className="w-full px-4 py-3 bg-[#0A1F44] text-white rounded-full appearance-none focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner"
+                >
+                  <option value="all:All">Filter by Party or Region</option>
+                  {Object.keys(filters).map(filterType => (
+                    <optgroup key={filterType} label={filterType}>
+                      {filters[filterType].map(option => (
+                        <option key={option} value={`${filterType.toLowerCase()}:${option}`}>
+                          {option}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <ChevronDown size={20} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8] pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Representatives Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up">
+            {filteredRepresentatives.length > 0 ? (
+              filteredRepresentatives.map((rep, index) => (
+                <div
+                  key={index}
+                  className="bg-[#0A1F44] p-6 rounded-2xl shadow-lg border border-[#2979FF]/20 transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:border-[#FFD700]"
+                >
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="relative w-24 h-24 rounded-full bg-[#111827] flex items-center justify-center border-4 border-[#FFD700] shadow-md">
+                      <User size={48} className="text-white" />
+                    </div>
+                    <div className="text-center">
+                      <h2 className="text-xl font-bold tracking-wide uppercase text-white">{rep.name}</h2>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full mt-2 inline-block ${rep.party === 'United Russia' ? 'bg-red-500 text-white' : rep.party === 'Russia of the Future' ? 'bg-blue-500 text-white' : 'bg-purple-500 text-white'}`}>
+                        {rep.party}
+                      </span>
+                      <p className="text-[#94A3B8] text-sm mt-1">{rep.region}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-1 sm:col-span-2 lg:col-span-3 text-center text-[#94A3B8] p-8">
+                <p>No representatives found matching your criteria.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const Leadership = () => {
+    return (
+      <div className="p-4 sm:p-8">
+        {/* Banner Image */}
+        <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-70"></div>
+          <div className="absolute inset-0 bg-[url('https://placehold.co/1920x1080/0A1F44/2979FF/png?text=')] bg-cover bg-center mix-blend-overlay opacity-30"></div>
+          <div className="relative z-10 flex items-center justify-center h-full px-4">
+            <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
+              Leadership of the Duma
+            </h1>
+          </div>
+        </div>
+        
+        <div className="w-full max-w-7xl mx-auto">
+          {/* Leadership Cards - Horizontal Layout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in-up">
+            <div className="md:col-span-1 flex justify-center items-stretch">
+                <div className="bg-[#0A1F44] p-6 rounded-2xl shadow-xl border border-[#2979FF]/20 flex flex-col items-center text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:border-[#FFD700]">
+                    <img
+                      src={leadership.majorityLeader?.image || 'https://placehold.co/400x400/0A1F44/FFD700?text=DM'}
+                      alt={leadership.majorityLeader?.name || 'Majority Leader'}
+                      className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-[#FFD700] shadow-lg"
+                    />
+                    <h3 className="text-lg font-bold tracking-wide uppercase text-[#2979FF]">{leadership.majorityLeader?.role || 'Majority Leader'}</h3>
+                    <h2 className="text-xl font-bold text-white mb-2">{leadership.majorityLeader?.name || 'N/A'}</h2>
+                    <span className={`px-2 py-1 text-sm font-semibold rounded-full ${getPartyColorClass(leadership.majorityLeader?.party)}`}>
+                      {leadership.majorityLeader?.party || 'N/A'}
+                    </span>
+                    <p className="text-[#94A3B8] text-sm mt-1">{leadership.majorityLeader?.region || 'N/A'}</p>
+                </div>
+            </div>
+            <div className="md:col-span-1 flex justify-center items-stretch">
+                <div className="bg-[#0A1F44] p-8 rounded-2xl shadow-xl border border-[#2979FF]/20 flex flex-col items-center text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:border-[#FFD700]">
+                    <img
+                      src={leadership.speaker?.image || 'https://placehold.co/400x400/0A1F44/2979FF?text=VV'}
+                      alt={leadership.speaker?.name || 'Duma Speaker'}
+                      className="w-32 h-32 rounded-full object-cover mb-6 border-4 border-[#2979FF] shadow-lg"
+                    />
+                    <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700]">{leadership.speaker?.role || 'Duma Speaker'}</h3>
+                    <h2 className="text-3xl font-bold text-white mb-2">{leadership.speaker?.name || 'N/A'}</h2>
+                    <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getPartyColorClass(leadership.speaker?.party)}`}>
+                      {leadership.speaker?.party || 'N/A'}
+                    </span>
+                    <p className="text-[#94A3B8] text-sm mt-1">{leadership.speaker?.region || 'N/A'}</p>
+                </div>
+            </div>
+            <div className="md:col-span-1 flex justify-center items-stretch">
+                <div className="bg-[#0A1F44] p-6 rounded-2xl shadow-xl border border-[#2979FF]/20 flex flex-col items-center text-center transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:border-[#FFD700]">
+                    <img
+                      src={leadership.minorityLeader?.image || 'https://placehold.co/400x400/0A1F44/2979FF?text=GZ'}
+                      alt={leadership.minorityLeader?.name || 'Minority Leader'}
+                      className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-[#2979FF] shadow-lg"
+                    />
+                    <h3 className="text-lg font-bold tracking-wide uppercase text-[#2979FF]">{leadership.minorityLeader?.role || 'Minority Leader'}</h3>
+                    <h2 className="text-xl font-bold text-white mb-2">{leadership.minorityLeader?.name || 'N/A'}</h2>
+                    <span className={`px-2 py-1 text-sm font-semibold rounded-full ${getPartyColorClass(leadership.minorityLeader?.party)}`}>
+                      {leadership.minorityLeader?.party || 'N/A'}
+                    </span>
+                    <p className="text-[#94A3B8] text-sm mt-1">{leadership.minorityLeader?.region || 'N/A'}</p>
+                </div>
+            </div>
+          </div>
+          <div className="bg-[#111827] p-8 md:p-12 rounded-[2rem] shadow-xl border border-white/10 mt-12 transition-transform duration-500 hover:scale-[1.005]">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-white flex items-center justify-center mb-6">
+                <Info className="inline-block mr-3 text-[#2979FF]" size={30} /> Understanding Leadership Roles
+            </h2>
+            <div className="grid md:grid-cols-3 gap-8 mt-8 text-left">
+              <div className="p-4 rounded-xl">
+                  <h3 className="text-xl font-bold tracking-wide uppercase text-[#FFD700] mb-2 flex items-center">
+                    Duma Speaker
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">{leadership.speaker?.bio || 'N/A'}</p>
+              </div>
+              <div className="p-4 rounded-xl">
+                  <h3 className="text-xl font-bold tracking-wide uppercase text-[#2979FF] mb-2 flex items-center">
+                    Majority Leader
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">{leadership.majorityLeader?.bio || 'N/A'}</p>
+              </div>
+              <div className="p-4 rounded-xl">
+                  <h3 className="text-xl font-bold tracking-wide uppercase text-[#2979FF] mb-2 flex items-center">
+                    Minority Leader
+                  </h3>
+                  <p className="text-[#94A3B8] leading-relaxed text-sm">{leadership.minorityLeader?.bio || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const LegislativeActivity = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [modalBill, setModalBill] = useState(null);
+    const [showAgendaModal, setShowAgendaModal] = useState(false);
+    const [selectedAgenda, setSelectedAgenda] = useState(null);
+    
+    // Filter bills based on search term
+    const filteredBills = bills.filter(bill =>
+      bill.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.date.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.sponsor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      bill.type.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Status color mapping for badges
+    const getStatusBadgeColor = (status) => {
+      switch (status) {
+        case 'submitted': return 'bg-gray-500 text-white';
+        case 'scheduled': return 'bg-blue-500 text-white';
+        case 'in debate': return 'bg-indigo-500 text-white';
+        case 'amended': return 'bg-purple-500 text-white';
+        case 'passed': return 'bg-green-500 text-white';
+        case 'failed': return 'bg-red-500 text-white';
+        case 'postponed': return 'bg-yellow-500 text-black';
+        case 'sent to president': return 'bg-teal-500 text-white';
+        case 'withdrawn': return 'bg-gray-400 text-black';
+        case 'first hearing': return 'bg-cyan-500 text-white';
+        case 'second hearing': return 'bg-orange-500 text-white';
+        case 'third hearing': return 'bg-pink-500 text-white';
+        default: return 'bg-gray-600 text-white';
+      }
+    };
+
+    const StatusBadge = ({ status }) => (
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${getStatusBadgeColor(status)}`}>
+        {status}
+      </span>
+    );
+  
+    const BillModal = ({ bill, onClose }) => {
+      const [isVoteInfoOpen, setIsVoteInfoOpen] = useState(false);
+      
+      if (!bill) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-70 animate-fade-in-modal">
+          <div className="bg-[#0A1F44] text-white p-6 rounded-2xl shadow-2xl max-w-4xl w-full animate-scale-in border border-[#2979FF]">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700] leading-tight">{bill.title}</h3>
+                <p className="font-mono text-[#94A3B8] text-sm mt-1">{bill.id}</p>
+              </div>
+              <button onClick={onClose} className="text-[#2979FF] hover:text-white transition-colors duration-200">
+                <XIcon size={28} />
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto max-h-[50vh] pr-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left Column Boxes */}
+                  <div className="flex flex-col space-y-4">
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Status</h4>
+                      <StatusBadge status={bill.status} />
+                    </div>
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Date Introduced</h4>
+                      <p className="text-[#CBD5E1]">{bill.date}</p>
+                    </div>
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Sponsor</h4>
+                      <p className="text-[#CBD5E1]">{bill.sponsor}</p>
+                    </div>
+                  </div>
+                  {/* Right Column Boxes */}
+                  <div className="flex flex-col space-y-4">
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Bill Type</h4>
+                      <p className="text-[#CBD5E1]">{bill.type}</p>
+                    </div>
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Latest Action</h4>
+                      <p className="text-[#CBD5E1]">{bill.latestAction}</p>
+                    </div>
+                    <div className="bg-[#111827] p-4 rounded-xl shadow-inner border border-[#2979FF]/20">
+                      <h4 className="text-sm font-semibold text-[#FFD700] uppercase mb-1">Vote Result</h4>
+                      <p className="text-[#CBD5E1]">{bill.status === 'passed' || bill.status === 'sent to president' ? 'Passed' : 'Pending'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collapsible Vote Info section */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => setIsVoteInfoOpen(!isVoteInfoOpen)}
+                    className="w-full py-2 px-4 rounded-full bg-[#2979FF] text-white font-semibold flex items-center justify-center space-x-2 hover:bg-[#FFD700] hover:text-[#0A1F44] transition-colors duration-200"
+                  >
+                    <span>View Vote Info</span>
+                    <ChevronDown size={16} className={`${isVoteInfoOpen ? 'rotate-180' : ''} transition-transform duration-300`} />
+                  </button>
+                  {isVoteInfoOpen && (
+                    <div className="mt-4 bg-[#111827] p-4 rounded-xl space-y-3 animate-fade-in-down">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-[#22C55E]/20 p-3 rounded-lg">
+                          <h5 className="font-semibold text-[#22C55E]">Ayes ({bill.vote.ayes.length})</h5>
+                          <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.ayes.join(', ')}</p>
+                        </div>
+                        <div className="bg-red-500/20 p-3 rounded-lg">
+                          <h5 className="font-semibold text-red-500">Nays ({bill.vote.nays.length})</h5>
+                          <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.nays.join(', ')}</p>
+                        </div>
+                        <div className="bg-yellow-500/20 p-3 rounded-lg">
+                          <h5 className="font-semibold text-yellow-500">Abstain ({bill.vote.abstain.length})</h5>
+                          <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.abstain.join(', ')}</p>
+                        </div>
+                        <div className="bg-gray-400/20 p-3 rounded-lg">
+                          <h5 className="font-semibold text-gray-400">Absent ({bill.vote.absent.length})</h5>
+                          <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.absent.join(', ')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const DumaAgenda = () => {
+      const [showAgendaModal, setShowAgendaModal] = useState(false);
+      const [selectedAgenda, setSelectedAgenda] = useState(null);
+    
+      const AgendaModal = ({ agenda, onClose }) => {
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-70 animate-fade-in-modal">
+            <div className="bg-[#0A1F44] text-white p-8 rounded-2xl shadow-2xl w-full max-w-2xl animate-scale-in border border-[#2979FF]">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-bold tracking-wide uppercase text-[#FFD700]">ORDER OF BUSINESS - {agenda.date}</h3>
+                <button onClick={onClose} className="text-[#2979FF] hover:text-white transition-colors duration-200">
+                  <XIcon size={28} />
+                </button>
+              </div>
+              <div className="overflow-y-auto max-h-[60vh] pr-2 space-y-6">
+                {agenda.business && agenda.business.map((item, index) => (
+                  <div key={index}>
+                    <h4 className="font-bold text-lg text-white mb-1">{item.time}: {item.title}</h4>
+                    {item.text && <p className="text-[#94A3B8] text-sm leading-relaxed">{item.text}</p>}
+                    {item.items && (
+                      <div className="mt-3 ml-4">
+                        <h5 className="font-semibold text-[#FFD700] uppercase text-sm mb-2">REVIEW OF PROPOSED LEGISLATION</h5>
+                        <ul className="list-none space-y-1">
+                          {item.items.map((bill, billIndex) => (
+                            <li key={billIndex}>
+                              <span className="text-[#CBD5E1] font-mono text-sm">Bill {billIndex + 1}:</span>
+                              <span className="text-white ml-2 text-sm">{bill.name}</span>
+                              <p className="text-xs text-[#64748B] ml-6 italic">{bill.details}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="bg-[#111827] p-8 rounded-2xl shadow-xl border border-white/10 mb-8">
+          <h2 className="text-3xl font-bold tracking-wide uppercase text-[#FFD700] text-center mb-6">
+            Duma Agenda
+          </h2>
+          <div className="space-y-4">
+            {mockAgenda.map((day, index) => (
+              <div key={index} className="bg-[#0A1F44] p-4 rounded-xl shadow-lg border border-[#2979FF]/20">
+                <button
+                  onClick={() => {
+                    setSelectedAgenda(day);
+                    setShowAgendaModal(true);
+                  }}
+                  className="w-full flex justify-between items-center text-left"
+                >
+                  <h3 className="text-xl font-bold text-white flex items-center">
+                    <Calendar size={20} className="text-[#FFD700] mr-2" />
+                    {day.date}
+                  </h3>
+                </button>
+              </div>
+            ))}
+          </div>
+          {showAgendaModal && selectedAgenda && <AgendaModal agenda={selectedAgenda} onClose={() => setShowAgendaModal(false)} />}
+        </div>
+      );
+    };
+
+    return (
+      <div className="p-4 sm:p-8">
+        {/* Banner Image */}
+        <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-70"></div>
+          <div className="absolute inset-0 bg-[url('https://placehold.co/1920x1080/0A1F44/2979FF/png?text=')] bg-cover bg-center mix-blend-overlay opacity-30"></div>
+          <div className="relative z-10 flex items-center justify-center h-full px-4">
+            <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
+              Live Bill tracking
+            </h1>
+          </div>
+        </div>
+        
+        <div className="w-full max-w-7xl mx-auto">
+          {/* Duma Agenda Section */}
+          <DumaAgenda />
+          
+          {/* Search Bar */}
+          <div className="bg-[#111827] p-6 rounded-2xl shadow-lg mb-8 border border-white/10">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={20} />
+              <input
+                type="text"
+                placeholder="SEARCH BILLS BY NAME, DATE, SPONSOR, OR TYPE..."
+                className="w-full pl-12 pr-4 py-3 bg-[#0A1F44] text-white rounded-full focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B] font-mono"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Bill List */}
+          <div className="bg-[#111827] p-8 rounded-2xl shadow-xl border border-white/10">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-[#FFD700] text-center mb-8">
+              Live Bill tracking
+            </h2>
+            <div className="space-y-6">
+              {filteredBills.length > 0 ? (
+                filteredBills.map((bill, index) => (
+                  <div
+                    key={index}
+                    onClick={() => setModalBill(bill)}
+                    className="bg-[#0A1F44] p-6 rounded-2xl shadow-lg border border-[#2979FF]/20 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:border-[#FFD700]"
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                      <div className="flex flex-col">
+                        <h3 className="text-xl font-bold text-white leading-tight">{bill.title}</h3>
+                        <p className="font-mono text-[#94A3B8] text-sm mt-1">{bill.id}</p>
+                      </div>
+                      <div className="mt-4 sm:mt-0 flex items-center space-x-4">
+                        <StatusBadge status={bill.status} />
+                        <span className="font-mono text-[#94A3B8] text-sm">{bill.date}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-[#94A3B8] p-8">
+                  <p>No bills found matching your criteria.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <BillModal bill={modalBill} onClose={() => setModalBill(null)} />
+      </div>
+    );
+  };
+  
+  const AdminPage = () => {
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [billForm, setBillForm] = useState({ id: '', title: '', status: '', type: '', date: '', latestAction: '', sponsor: '', vote: { ayes: [], nays: [], abstain: [], absent: [] } });
+    const [repForm, setRepForm] = useState({ id: '', name: '', party: '', region: '' });
+    const [leaderForm, setLeaderForm] = useState({ role: '', name: '', party: '', image: '', bio: '' });
+    const [bills, setBills] = useState(mockBills);
+    const [representatives, setRepresentatives] = useState(mockRepresentatives);
+    const [leadership, setLeadership] = useState(leadershipData);
+    const [isEditingBill, setIsEditingBill] = useState(false);
+    const [isEditingRep, setIsEditingRep] = useState(false);
+    const [isEditingLeader, setIsEditingLeader] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
+
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_PASSWORD = 'password';
+
+    const handleLogin = (e) => {
+      e.preventDefault();
+      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        setIsLoggedIn(true);
+      } else {
+        setStatusMessage("Invalid credentials.");
+      }
+    };
+    
+    // Bill management handlers
+    const handleBillChange = (e) => {
+      const { name, value } = e.target;
+      setBillForm(prevState => ({ ...prevState, [name]: value }));
+    };
+
+    const handleVoteChange = (e, type) => {
+      const { value } = e.target;
+      const votesArray = value.split(',').map(name => name.trim()).filter(name => name);
+      setBillForm(prevState => ({ ...prevState, vote: { ...prevState.vote, [type]: votesArray } }));
+    };
+
+    const handleSubmitBill = (e) => {
+      e.preventDefault();
+      // This is a local state update for demo purposes.
+      // In a real app, this would update the database.
+      if (isEditingBill) {
+        setBills(bills.map(bill => (bill.id === billForm.id ? billForm : bill)));
+        setStatusMessage('Bill updated successfully!');
+      } else {
+        setBills([...bills, { ...billForm, id: `new-${Date.now()}` }]);
+        setStatusMessage('Bill added successfully!');
+      }
+      setBillForm({ id: '', title: '', status: '', type: '', date: '', latestAction: '', sponsor: '', vote: { ayes: [], nays: [], abstain: [], absent: [] } });
+      setIsEditingBill(false);
+    };
+
+    const handleEditBill = (bill) => {
+      setBillForm(bill);
+      setIsEditingBill(true);
+    };
+    
+    const handleDeleteBill = (id) => {
+      if (window.confirm("Are you sure you want to delete this bill?")) {
+        setBills(bills.filter(bill => bill.id !== id));
+        setStatusMessage('Bill deleted successfully!');
+      }
+    };
+
+    // Representative management handlers
+    const handleRepChange = (e) => {
+      const { name, value } = e.target;
+      setRepForm(prevState => ({ ...prevState, [name]: value }));
+    };
+    
+    const handleSubmitRep = (e) => {
+      e.preventDefault();
+      if (isEditingRep) {
+        setRepresentatives(representatives.map(rep => (rep.id === repForm.id ? repForm : rep)));
+        setStatusMessage('Representative updated successfully!');
+      } else {
+        setRepresentatives([...representatives, { ...repForm, id: `new-rep-${Date.now()}` }]);
+        setStatusMessage('Representative added successfully!');
+      }
+      setRepForm({ id: '', name: '', party: '', region: '' });
+      setIsEditingRep(false);
+    };
+
+    const handleEditRep = (rep) => {
+      setRepForm(rep);
+      setIsEditingRep(true);
+    };
+
+    // Leadership management handlers
+    const handleLeaderChange = (e) => {
+      const { name, value } = e.target;
+      setLeaderForm(prevState => ({ ...prevState, [name]: value }));
+    };
+
+    const handleEditLeader = (role) => {
+      setLeaderForm(leadership[role]);
+      setIsEditingLeader(true);
+    };
+    
+    const handleSubmitLeader = (e) => {
+      e.preventDefault();
+      if (isEditingLeader) {
+        setLeadership({ ...leadership, [leaderForm.role.toLowerCase().replace(' ', '')]: leaderForm });
+        setStatusMessage(`${leaderForm.role} updated successfully!`);
+      }
+      setLeaderForm({ role: '', name: '', party: '', image: '', bio: '' });
+      setIsEditingLeader(false);
+    };
+
+    const MessageToast = ({ message, onClose }) => {
+      if (!message) return null;
+      return (
+        <div className="fixed top-5 right-5 z-50 animate-fade-in-down bg-[#FFD700] text-[#0A1F44] font-semibold py-3 px-6 rounded-full shadow-lg transition-transform duration-300">
+          <div className="flex items-center space-x-2">
+            <span>{message}</span>
+            <button onClick={onClose} className="text-[#0A1F44] ml-2">
+              <XIcon size={18} />
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    if (!isLoggedIn) {
+      return (
+        <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] bg-[#111827]">
+          <MessageToast message={statusMessage} onClose={() => setStatusMessage('')} />
+          <div className="bg-[#0A1F44] p-8 rounded-2xl shadow-xl w-full max-w-md border border-[#2979FF] animate-fade-in">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-center text-white mb-6">
+              Admin Login
+            </h2>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="username">
+                  Username
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  placeholder="admin"
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="password">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  placeholder="password"
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-3 bg-[#FFD700] text-[#0A1F44] font-bold rounded-full hover:bg-white transition-colors duration-300 shadow-lg animate-pulse-slow"
+              >
+                Login
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="p-4 sm:p-8">
+        <MessageToast message={statusMessage} onClose={() => setStatusMessage('')} />
+        <div className="w-full max-w-7xl mx-auto space-y-8">
+          {/* Bill Management Panel */}
+          <div className="bg-[#0A1F44] p-8 rounded-[2rem] shadow-xl border border-[#2979FF]/30 backdrop-blur-md animate-fade-in-up">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-[#FFD700] text-center mb-6">
+              {isEditingBill ? 'Edit Bill' : 'Add New Bill'}
+            </h2>
+            <form onSubmit={handleSubmitBill} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="title">
+                  Title
+                </label>
+                <input
+                  id="title"
+                  type="text"
+                  name="title"
+                  value={billForm.title}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="id">
+                  Bill ID
+                </label>
+                <input
+                  id="id"
+                  type="text"
+                  name="id"
+                  value={billForm.id}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="status">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={billForm.status}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner"
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="submitted">submitted</option>
+                  <option value="scheduled">scheduled</option>
+                  <option value="in debate">in debate</option>
+                  <option value="amended">amended</option>
+                  <option value="passed">passed</option>
+                  <option value="failed">failed</option>
+                  <option value="postponed">postponed</option>
+                  <option value="sent to president">sent to president</option>
+                  <option value="withdrawn">withdrawn</option>
+                  <option value="first hearing">first hearing</option>
+                  <option value="second hearing">second hearing</option>
+                  <option value="third hearing">third hearing</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="type">
+                  Bill Type
+                </label>
+                <input
+                  id="type"
+                  type="text"
+                  name="type"
+                  value={billForm.type}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="date">
+                  Date Introduced
+                </label>
+                <input
+                  id="date"
+                  type="text"
+                  name="date"
+                  value={billForm.date}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="sponsor">
+                  Sponsor
+                </label>
+                <input
+                  id="sponsor"
+                  type="text"
+                  name="sponsor"
+                  value={billForm.sponsor}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="latestAction">
+                  Latest Action
+                </label>
+                <input
+                  id="latestAction"
+                  type="text"
+                  name="latestAction"
+                  value={billForm.latestAction}
+                  onChange={handleBillChange}
+                  className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="voteAyes">
+                  Vote Breakdown (Ayes, Nays, Abstain, Absent)
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Ayes (comma-separated)"
+                    value={billForm.vote.ayes.join(', ')}
+                    onChange={(e) => handleVoteChange(e, 'ayes')}
+                    className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nays (comma-separated)"
+                    value={billForm.vote.nays.join(', ')}
+                    onChange={(e) => handleVoteChange(e, 'nays')}
+                    className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Abstain (comma-separated)"
+                    value={billForm.vote.abstain.join(', ')}
+                    onChange={(e) => handleVoteChange(e, 'abstain')}
+                    className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Absent (comma-separated)"
+                    value={billForm.vote.absent.join(', ')}
+                    onChange={(e) => handleVoteChange(e, 'absent')}
+                    className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] transition-all duration-300 shadow-inner placeholder-[#64748B]"
+                  />
+                </div>
+              </div>
+              <div className="md:col-span-2 text-center">
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-[#FFD700] text-[#0A1F44] font-bold rounded-full hover:bg-white transition-colors duration-300 shadow-lg animate-pulse-slow"
+                >
+                  {isEditingBill ? 'Update Bill' : 'Add Bill'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Live Bill tracking */}
+          <div className="bg-[#0A1F44] p-8 rounded-[2rem] shadow-xl border border-[#2979FF]/30 backdrop-blur-md animate-fade-in-up">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-[#FFD700] text-center mb-6">
+              Live Bill tracking
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-white table-auto">
+                <thead>
+                  <tr className="bg-[#111827] text-left uppercase text-sm tracking-wide">
+                    <th className="px-4 py-3 font-semibold">ID</th>
+                    <th className="px-4 py-3 font-semibold">Title</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bills.map((bill) => (
+                    <tr
+                      key={bill.id}
+                      className="border-b border-white/10 hover:bg-[#111827]/50 transition-colors duration-200"
+                    >
+                      <td className="px-4 py-4 font-mono text-[#CBD5E1] text-xs align-top">{bill.id}</td>
+                      <td className="px-4 py-4 text-white text-sm align-top">{bill.title}</td>
+                      <td className="px-4 py-4 align-top">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold uppercase ${getAdminStatusColor(bill.status)}`}>
+                          {bill.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-top text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => handleEditBill(bill)}
+                            className="text-[#2979FF] hover:text-white transition-colors duration-200"
+                            aria-label={`Edit ${bill.title}`}
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBill(bill.id)}
+                            className="text-[#FFD700] hover:text-white transition-colors duration-200"
+                            aria-label={`Delete ${bill.title}`}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {/* Representative Management Panel */}
+          <div className="bg-[#0A1F44] p-8 rounded-[2rem] shadow-xl border border-[#2979FF]/30 backdrop-blur-md animate-fade-in-up">
+            <h2 className="text-3xl font-bold tracking-wide uppercase text-[#FFD700] text-center mb-6">
+              Manage Representatives
+            </h2>
+            <form onSubmit={handleSubmitRep} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="rep-name">Name</label>
+                  <input id="rep-name" type="text" name="name" value={repForm.name} onChange={handleRepChange} className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] shadow-inner" required />
+                </div>
+                <div>
+                  <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="rep-party">Party</label>
+                  <select id="rep-party" name="party" value={repForm.party} onChange={handleRepChange} className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] shadow-inner" required>
+                    <option value="">Select Party</option>
+                    <option value="United Russia">United Russia</option>
+                    <option value="Russia of the Future">Russia of the Future</option>
+                    <option value="Independent">Independent</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[#94A3B8] text-sm mb-2" htmlFor="rep-region">Region</label>
+                  <select id="rep-region" name="region" value={repForm.region} onChange={handleRepChange} className="w-full px-4 py-3 bg-[#111827] text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2979FF] shadow-inner" required>
+                    <option value="">Select Region</option>
+                    <option value="Volga Valley">Volga Valley</option>
+                    <option value="Northern Frontier">Northern Frontier</option>
+                    <option value="Caucasia">Caucasia</option>
+                    <option value="Central Steppes">Central Steppes</option>
+                    <option value="Siberian Frontier">Siberian Frontier</option>
+                    <option value="Outer Mongolia">Outer Mongolia</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2 text-center">
+                  <button type="submit" className="w-full py-3 bg-[#FFD700] text-[#0A1F44] font-bold rounded-full hover:bg-white transition-colors duration-300 shadow-lg">
+                    {isEditingRep ? 'Update Representative' : 'Add Representative'}
+                  </button>
+                </div>
+            </form>
+            <div className="mt-8 overflow-x-auto">
+              <table className="min-w-full text-white table-auto">
+                <thead>
+                  <tr className="bg-[#111827] text-left uppercase text-sm tracking-wide">
+                    <th className="px-4 py-3 font-semibold">Name</th>
+                    <th className="px-4 py-3 font-semibold">Party</th>
+                    <th className="px-4 py-3 font-semibold">Region</th>
+                    <th className="px-4 py-3 font-semibold text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {representatives.map((rep) => (
+                    <tr key={rep.id} className="border-b border-white/10 hover:bg-[#111827]/50 transition-colors duration-200">
+                      <td className="px-4 py-4 text-sm align-top">{rep.name}</td>
+                      <td className="px-4 py-4 text-sm align-top">{rep.party}</td>
+                      <td className="px-4 py-4 text-sm align-top">{rep.region}</td>
+                      <td className="px-4 py-4 align-top text-center">
+                        <button onClick={() => handleEditRep(rep)} className="text-[#2979FF] hover:text-white transition-colors duration-200">
+                          <Edit size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const Navbar = ({ currentPage, setCurrentPage, auth, userId }) => {
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+    const navItems = [
+      { name: 'Home', page: 'home', icon: HomeIcon, mobile: true },
+      { name: 'Leadership', page: 'leadership', icon: Users, mobile: true },
+      { name: 'Representatives', page: 'representatives', icon: Briefcase, mobile: true },
+      { name: 'Activity', page: 'legislative-activity', icon: GitPullRequest, mobile: true },
+      { name: 'Admin', page: 'admin', icon: Lock, mobile: true },
+    ];
+  
+    return (
+      <>
+        {/* Main Navbar */}
+        <nav className="sticky top-0 z-40 bg-[#0A1F44]/80 backdrop-blur-md shadow-lg transition-all duration-300">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center">
+                {/* Logo or Title */}
+                <span className="text-white text-2xl font-bold tracking-wide uppercase">
+                  STATE DUMA
+                </span>
+              </div>
+              {/* Desktop Nav Items */}
+              <div className="hidden md:flex items-center space-x-8">
+                {navItems.map((item) => (
+                  <button
+                    key={item.page}
+                    onClick={() => setCurrentPage(item.page)}
+                    className={`relative text-white font-semibold tracking-wide transition-all duration-300 hover:text-[#2979FF] group`}
+                  >
+                    <span className="relative z-10">{item.name}</span>
+                    <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-[#2979FF] transition-transform duration-300 transform scale-x-0 group-hover:scale-x-100 ${currentPage === item.page ? 'scale-x-100' : ''}`}></span>
+                  </button>
+                ))}
+              </div>
+              {/* Mobile Menu Button */}
+              <div className="md:hidden">
+                <button
+                  onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                  className="text-white hover:text-[#2979FF] focus:outline-none"
+                >
+                  <svg
+                    className="h-8 w-8"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d={isMobileMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16m-7 6h7"}
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+        {/* Mobile Menu */}
+        <div
+          className={`fixed inset-0 z-30 bg-[#0A1F44] transition-transform duration-300 ease-in-out transform ${
+            isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          } md:hidden`}
+        >
+          <div className="flex justify-end p-4">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="text-white">
+              <XIcon size={32} />
+            </button>
+          </div>
+          <div className="flex flex-col items-center justify-center space-y-8 text-2xl">
+            {navItems.map((item) => (
+              <button
+                key={item.page}
+                onClick={() => {
+                  setCurrentPage(item.page);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex items-center space-x-4 text-white hover:text-[#2979FF] transition-colors duration-200`}
+              >
+                <item.icon size={32} />
+                <span className="font-bold uppercase tracking-wide">{item.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  };
+  
+  // A small footer component to add at the bottom of all pages
+  const Footer = () => (
+    <footer className="bg-[#0A1F44] text-white py-6 mt-auto">
+      <div className="container mx-auto px-4 text-center">
+        <p className="text-sm text-[#94A3B8]">State duma of the Russian federation. All rights reserved to RFGR.</p>
+      </div>
+    </footer>
+  );
+  
+  const renderPage = () => {
+    switch (currentPage) {
+      case 'home':
+        return <Home />;
+      case 'leadership':
+        return <Leadership />;
+      case 'representatives':
+        return <Representatives />;
+      case 'legislative-activity':
+        return <LegislativeActivity />;
+      case 'admin':
+        return <AdminPage />;
+      default:
+        return <Home />;
+    }
+  };
+
+  return (
+    <div className="bg-[#111827] text-white min-h-screen font-[Inter] flex flex-col">
+      <style>{`
+        body {
+          font-family: 'Inter', sans-serif;
+        }
+        .animate-fade-in {
+          animation: fadeIn 1s ease-out forwards;
+        }
+        .animate-fade-in-down {
+          animation: fadeInDown 0.8s ease-out forwards;
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.8s ease-out forwards;
+        }
+        .animate-pulse-slow {
+          animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        .animate-fade-in-modal {
+          animation: fadeInModal 0.3s ease-out forwards;
+        }
+        .animate-scale-in {
+          animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        input[type="range"] {
+          -webkit-appearance: none;
+          background: transparent;
+          cursor: pointer;
+          width: 100%;
+          margin: 0; /* Add this to remove default margin */
+        }
+        
+        input[type="range"]::-webkit-slider-runnable-track {
+          width: 100%;
+          height: 8px;
+          background: #0A1F44;
+          border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #FFD700;
+          cursor: pointer;
+          margin-top: -6px;
+          box-shadow: 0 0 5px rgba(255, 215, 0, 0.75);
+          border: 2px solid #0A1F44;
+        }
+        
+        input[type="range"]:focus::-webkit-slider-thumb {
+          box-shadow: 0 0 0 4px rgba(41, 121, 255, 0.5);
+        }
+
+        .timeline-steps {
+          display: flex;
+          justify-content: space-between;
+          position: relative;
+          width: 100%;
+        }
+
+        .timeline-step {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          position: relative;
+          z-index: 10;
+        }
+
+        .timeline-step-dot {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 4px solid #0A1F44;
+          background-color: #0A1F44;
+          transition: all 0.3s;
+        }
+
+        .timeline-step.active .timeline-step-dot {
+          background-color: #2979FF;
+          border-color: #FFD700;
+        }
+
+        .timeline-step-title {
+          margin-top: 16px;
+          font-size: 14px;
+          font-weight: 500;
+          max-width: 100px;
+          line-height: 1.2;
+          transition: color 0.3s;
+        }
+
+        .timeline-step.active .timeline-step-title {
+          color: white;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+
+        @keyframes fadeInModal {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes scaleIn {
+          from { transform: scale(0.9); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+      <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+      <main className="container mx-auto py-8 px-4 flex-grow">
+        <div className="max-w-7xl mx-auto">
+          {renderPage()}
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
+export default App;
