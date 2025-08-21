@@ -42,6 +42,7 @@ function App() {
   const [bills, setBills] = useState([]);
   const [representatives, setRepresentatives] = useState([]);
   const [leadership, setLeadership] = useState({});
+  const [hasAnimated, setHasAnimated] = useState(false);
 
   // App-level Duma agenda (order of business) shared between Admin and Activity pages
   const [agenda, setAgenda] = useState([]);
@@ -51,6 +52,14 @@ function App() {
   // Ensure initial leadership default (if you keep leadershipData variable, you can set from that)
   useEffect(() => {
     // if leadership not set, keep as-is (or set defaults here)
+  }, []);
+
+  // Set animation flag after component mounts to prevent multiple animations
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasAnimated(true);
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   // Minimal mock data to prevent ReferenceError when Admin/Duma pages render.
@@ -301,10 +310,10 @@ function App() {
           <div className="absolute inset-0 bg-[url('./State-Duma/homepagebanner.jpg')] bg-cover bg-center"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-60"></div>
           <div className="relative z-10 container mx-auto text-center px-4">
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl text-white font-extrabold tracking-wide uppercase leading-tight animate-fade-in-up">
+            <h1 className={`text-4xl sm:text-6xl lg:text-7xl text-white font-extrabold tracking-wide uppercase leading-tight ${hasAnimated ? 'animate-fade-in-up' : ''}`}>
               State Duma <br /> of the Russian Federation
             </h1>
-            <p className="mt-4 sm:mt-6 text-xl sm:text-2xl text-white/80 leading-relaxed max-w-2xl mx-auto animate-fade-in" style={{ animationDelay: '0.5s' }}>
+            <p className={`mt-4 sm:mt-6 text-xl sm:text-2xl text-white/80 leading-relaxed max-w-2xl mx-auto ${hasAnimated ? 'animate-fade-in' : ''}`} style={{ animationDelay: hasAnimated ? '0.5s' : '0s' }}>
               The legislative authority of the Russian Federation.
             </p>
           </div>
@@ -481,7 +490,7 @@ function App() {
                   className="bg-[#0A1F44] p-6 rounded-2xl shadow-lg border border-[#2979FF]/20 transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl hover:border-[#FFD700]"
                 >
                   <div className="flex flex-col items-center space-y-4">
-                    <div className="relative w-24 h-24 rounded-full bg-[#111827] flex items-center justify-center border-4 border-[#FFD700] shadow-md overflow-hidden">
+                    <div className={`relative w-24 h-24 rounded-full bg-[#111827] flex items-center justify-center border-4 shadow-md overflow-hidden ${rep.party === 'United Russia' ? 'border-red-500' : rep.party === 'Russia of the Future' ? 'border-blue-500' : 'border-purple-500'}`}>
                       {rep.image ? (
                         <img src={rep.image} alt={rep.name} className="w-full h-full object-cover" />
                       ) : (
