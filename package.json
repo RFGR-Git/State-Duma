@@ -1,7 +1,7 @@
 {
   "name": "your-app-name",
   "version": "0.1.0",
-  "homepage": "https://RFGR-Git.github.io/State-Duma",
+  "homepage": ".",
   "repository": {
     "type": "git",
     "url": "https://github.com/RFGR-Git/State-Duma.git"
