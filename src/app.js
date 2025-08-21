@@ -307,7 +307,7 @@ function App() {
       <div className="flex flex-col items-center">
         {/* Hero Section */}
         <div className="w-full relative py-24 sm:py-32 overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-16">
-          <div className="absolute inset-0 bg-[url('./State-Duma/homepagebanner.jpg')] bg-cover bg-center"></div>
+          <div className="absolute inset-0 bg-[url('./homepagebanner.jpg')] bg-cover bg-center"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-60"></div>
           <div className="relative z-10 container mx-auto text-center px-4">
             <h1 className={`text-4xl sm:text-6xl lg:text-7xl text-white font-extrabold tracking-wide uppercase leading-tight ${hasAnimated ? 'animate-fade-in-up' : ''}`}>
@@ -433,7 +433,7 @@ function App() {
       <div className="p-4 sm:p-8">
         {/* Banner Image */}
         <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
-          <div className="absolute inset-0 bg-[url('./State-Duma/reppagebanner.jpg')] bg-cover bg-center"></div>
+          <div className="absolute inset-0 bg-[url('./reppagebanner.jpg')] bg-cover bg-center"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-60"></div>
           <div className="relative z-10 flex items-center justify-center h-full px-4">
             <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
@@ -544,7 +544,7 @@ function App() {
       <div className="p-4 sm:p-8">
         {/* Banner Image */}
         <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
-          <div className="absolute inset-0 bg-[url('./State-Duma/leadershippagebanner.jpg')] bg-cover bg-center"></div>
+          <div className="absolute inset-0 bg-[url('./leadershippagebanner.jpg')] bg-cover bg-center"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-60"></div>
           <div className="relative z-10 flex items-center justify-center h-full px-4">
             <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
@@ -916,7 +916,7 @@ function App() {
       <div className="p-4 sm:p-8">
         {/* Banner Image */}
         <div className="w-full h-64 sm:h-80 relative overflow-hidden rounded-b-[4rem] shadow-2xl z-0 mb-12">
-          <div className="absolute inset-0 bg-[url('./State-Duma/legislativeactivitybanner.jpg')] bg-cover bg-center"></div>
+          <div className="absolute inset-0 bg-[url('./legislativeactivitybanner.jpg')] bg-cover bg-center"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] via-[#2979FF] to-[#FFD700] opacity-60"></div>
           <div className="relative z-10 flex items-center justify-center h-full px-4">
             <h1 className="text-4xl sm:text-6xl text-white font-extrabold tracking-wide uppercase text-center animate-fade-in-up">
