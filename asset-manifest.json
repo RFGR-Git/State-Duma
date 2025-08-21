@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/State-Duma/static/css/main.08e6aacc.css",
-    "main.js": "/State-Duma/static/js/main.2af155b3.js",
+    "main.js": "/State-Duma/static/js/main.e64e486a.js",
     "index.html": "/State-Duma/index.html",
     "main.08e6aacc.css.map": "/State-Duma/static/css/main.08e6aacc.css.map",
-    "main.2af155b3.js.map": "/State-Duma/static/js/main.2af155b3.js.map"
+    "main.e64e486a.js.map": "/State-Duma/static/js/main.e64e486a.js.map"
   },
   "entrypoints": [
     "static/css/main.08e6aacc.css",
-    "static/js/main.2af155b3.js"
+    "static/js/main.e64e486a.js"
   ]
 }
