@@ -364,12 +364,12 @@ function App() {
             </h2>
             
             {/* Timeline steps */}
-            <div className="relative flex justify-between items-center mb-10">
-              <div className="absolute w-full h-1 bg-[#0A1F44] left-0" style={{ top: '44px' }}>
+            <div className="relative flex justify-between items-start mb-10">
+              <div className="absolute w-full h-1 bg-[#0A1F44] left-0" style={{ top: '48px' }}>
                 <div className="h-full bg-gradient-to-r from-[#2979FF] to-[#FFD700] transition-all duration-300" style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}></div>
               </div>
               {steps.map((step, index) => (
-                <div key={index} className="flex flex-col items-center justify-center flex-1 text-center relative z-10">
+                <div key={index} className="flex flex-col items-center justify-start flex-1 text-center relative z-10">
                   <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${currentStep >= index ? 'border-[#FFD700] bg-[#2979FF]' : 'border-[#0A1F44] bg-[#0A1F44]'}`}>
                     {currentStep >= index && <CheckCircle className="text-white" size={20} />}
                   </div>
