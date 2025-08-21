@@ -744,12 +744,21 @@ function App() {
                             return 'Pending';
                           }
                           
-                          // If there's vote data, determine result based on status
-                          if (bill.status === 'passed' || bill.status === 'sent to president') {
-                            return 'Passed';
-                          } else {
-                            return 'Pending';
-                          }
+                          // Calculate vote totals and show summary
+                          // Filter out any "N/A" or invalid values and only count actual names
+                          const ayes = Array.isArray(bill.vote.ayes) ? bill.vote.ayes.filter(name => name && name !== 'N/A' && name.trim() !== '').length : 0;
+                          const nays = Array.isArray(bill.vote.nays) ? bill.vote.nays.filter(name => name && name !== 'N/A' && name.trim() !== '').length : 0;
+                          const abstain = Array.isArray(bill.vote.abstain) ? bill.vote.abstain.filter(name => name && name !== 'N/A' && name.trim() !== '').length : 0;
+                          const absent = Array.isArray(bill.vote.absent) ? bill.vote.absent.filter(name => name && name !== 'N/A' && name.trim() !== '').length : 0;
+                          
+                          // Build vote summary string
+                          const voteSummary = [];
+                          if (ayes > 0) voteSummary.push(`AYE: ${ayes}`);
+                          if (nays > 0) voteSummary.push(`NAY: ${nays}`);
+                          if (abstain > 0) voteSummary.push(`ABS: ${abstain}`);
+                          if (absent > 0) voteSummary.push(`ABSENT: ${absent}`);
+                          
+                          return voteSummary.join(', ');
                         })()}
                       </p>
                     </div>
@@ -769,36 +778,36 @@ function App() {
                     <div className="mt-4 bg-[#111827] p-4 rounded-xl space-y-3 animate-fade-in-down">
                       <div className="grid grid-cols-2 gap-4">
                         {/* Only show vote boxes that have data */}
-                        {bill.vote?.ayes && bill.vote.ayes.length > 0 && (
+                        {bill.vote?.ayes && Array.isArray(bill.vote.ayes) && bill.vote.ayes.filter(name => name && name !== 'N/A' && name.trim() !== '').length > 0 && (
                           <div className="bg-[#22C55E]/20 p-3 rounded-lg">
-                            <h5 className="font-semibold text-[#22C55E]">Ayes ({bill.vote.ayes.length})</h5>
-                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.ayes.join(', ')}</p>
+                            <h5 className="font-semibold text-[#22C55E]">Ayes ({bill.vote.ayes.filter(name => name && name !== 'N/A' && name.trim() !== '').length})</h5>
+                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.ayes.filter(name => name && name !== 'N/A' && name.trim() !== '').join(', ')}</p>
                           </div>
                         )}
-                        {bill.vote?.nays && bill.vote.nays.length > 0 && (
+                        {bill.vote?.nays && Array.isArray(bill.vote.nays) && bill.vote.nays.filter(name => name && name !== 'N/A' && name.trim() !== '').length > 0 && (
                           <div className="bg-red-500/20 p-3 rounded-lg">
-                            <h5 className="font-semibold text-red-500">Nays ({bill.vote.nays.length})</h5>
-                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.nays.join(', ')}</p>
+                            <h5 className="font-semibold text-red-500">Nays ({bill.vote.nays.filter(name => name && name !== 'N/A' && name.trim() !== '').length})</h5>
+                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.nays.filter(name => name && name !== 'N/A' && name.trim() !== '').join(', ')}</p>
                           </div>
                         )}
-                        {bill.vote?.abstain && bill.vote.abstain.length > 0 && (
+                        {bill.vote?.abstain && Array.isArray(bill.vote.abstain) && bill.vote.abstain.filter(name => name && name !== 'N/A' && name.trim() !== '').length > 0 && (
                           <div className="bg-yellow-500/20 p-3 rounded-lg">
-                            <h5 className="font-semibold text-yellow-500">Abstain ({bill.vote.abstain.length})</h5>
-                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.abstain.join(', ')}</p>
+                            <h5 className="font-semibold text-yellow-500">Abstain ({bill.vote.abstain.filter(name => name && name !== 'N/A' && name.trim() !== '').length})</h5>
+                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.abstain.filter(name => name && name !== 'N/A' && name.trim() !== '').join(', ')}</p>
                           </div>
                         )}
-                        {bill.vote?.absent && bill.vote.absent.length > 0 && (
-                          <div className="bg-gray-400/20 p-3 rounded-lg">
-                            <h5 className="font-semibold text-gray-400">Absent ({bill.vote.absent.length})</h5>
-                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.absent.join(', ')}</p>
+                        {bill.vote?.absent && Array.isArray(bill.vote.absent) && bill.vote.absent.filter(name => name && name !== 'N/A' && name.trim() !== '').length > 0 && (
+                          <div className="bg-gray-500/20 p-3 rounded-lg">
+                            <h5 className="font-semibold text-gray-400">Absent ({bill.vote.absent.filter(name => name && name !== 'N/A' && name.trim() !== '').length})</h5>
+                            <p className="text-xs text-[#CBD5E1] mt-1">{bill.vote.absent.filter(name => name && name !== 'N/A' && name.trim() !== '').join(', ')}</p>
                           </div>
                         )}
-                        {/* Show message if no vote data */}
+                        {/* Show message if no valid vote data */}
                         {(!bill.vote || (
-                          (!bill.vote.ayes || bill.vote.ayes.length === 0) &&
-                          (!bill.vote.nays || bill.vote.nays.length === 0) &&
-                          (!bill.vote.abstain || bill.vote.abstain.length === 0) &&
-                          (!bill.vote.absent || bill.vote.absent.length === 0)
+                          (!bill.vote.ayes || !Array.isArray(bill.vote.ayes) || bill.vote.ayes.filter(name => name && name !== 'N/A' && name.trim() !== '').length === 0) &&
+                          (!bill.vote.nays || !Array.isArray(bill.vote.nays) || bill.vote.nays.filter(name => name && name !== 'N/A' && name.trim() !== '').length === 0) &&
+                          (!bill.vote.abstain || !Array.isArray(bill.vote.abstain) || bill.vote.abstain.filter(name => name && name !== 'N/A' && name.trim() !== '').length === 0) &&
+                          (!bill.vote.absent || !Array.isArray(bill.vote.absent) || bill.vote.absent.filter(name => name && name !== 'N/A' && name.trim() !== '').length === 0)
                         )) && (
                           <div className="col-span-2 text-center py-4">
                             <p className="text-[#94A3B8] text-sm">No vote data available</p>
