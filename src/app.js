@@ -365,7 +365,7 @@ function App() {
             
             {/* Timeline steps */}
             <div className="relative flex justify-between items-center mb-10">
-              <div className="absolute w-full h-1 bg-[#0A1F44] left-0" style={{ top: '20px' }}>
+              <div className="absolute w-full h-1 bg-[#0A1F44] left-0" style={{ top: '32px' }}>
                 <div className="h-full bg-gradient-to-r from-[#2979FF] to-[#FFD700] transition-all duration-300" style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}></div>
               </div>
               {steps.map((step, index) => (
