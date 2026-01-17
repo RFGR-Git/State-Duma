@@ -1,0 +1,156 @@
+/* Minimal reset and base styles */
+:root {
+  --bg: #0b1220;
+  --muted: #94a3b8;
+  --white: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--white);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* basic typographic defaults to reduce flash of unstyled content */
+h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 800; }
+p { margin: 0 0 1rem 0; color: var(--muted); }
+
+/* Make buttons and inputs look decent before Tailwind loads */
+button, input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* simple layout guard for the navbar area */
+nav { background: rgba(10,31,68,0.85); }
+
+/* ensure anchors have visible color */
+a { color: #7dd3fc; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Bill card grid alignment */
+.bill-card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .bill-card-grid {
+    grid-template-columns: 1fr auto auto auto;
+    gap: 1rem;
+    align-items: center;
+  }
+}
+
+/* Ensure consistent status badge sizing */
+.status-badge {
+  min-width: 140px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Ensure consistent button sizing */
+.view-button {
+  min-width: 80px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Ensure consistent date sizing */
+.date-text {
+  min-width: 80px;
+  text-align: center;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Touch-friendly button sizes */
+  button, a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobile-optimized spacing */
+  .mobile-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .mobile-text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+  
+  /* Mobile-optimized grid gaps */
+  .mobile-gap {
+    gap: 0.75rem;
+  }
+  
+  /* Mobile-optimized card padding */
+  .mobile-card-padding {
+    padding: 1rem;
+  }
+  
+  /* Mobile-optimized modal padding */
+  .mobile-modal-padding {
+    padding: 1rem;
+  }
+  
+  /* Mobile-optimized banner heights */
+  .mobile-banner-height {
+    height: 12rem;
+  }
+  
+  /* Mobile-optimized rounded corners */
+  .mobile-rounded {
+    border-radius: 0.75rem;
+  }
+}
+
+/* Tablet-specific improvements */
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Tablet-optimized spacing */
+  .tablet-padding {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  /* Tablet-optimized grid layouts */
+  .tablet-grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  button, a[role="button"], input, select {
+    min-height: 48px;
+  }
+  
+  /* Disable hover effects on touch devices */
+  .hover\:scale-105:hover {
+    transform: none;
+  }
+  
+  .hover\:shadow-lg:hover {
+    box-shadow: none;
+  }
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Ensure crisp text rendering */
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
